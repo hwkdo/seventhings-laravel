@@ -1,0 +1,34 @@
+{
+    "name": "hwkdo/seventhings-laravel",
+    "type": "library",
+    "description": "Client for Seventhings ",
+    "homepage": "https://hwk-do.de",
+    "keywords": ["seventhings", "hwkdo"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Alexander Dieckmann",
+            "homepage": "http://aleex.de"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        
+    },
+    
+    "autoload": {        
+        "psr-4": {
+            "Hwkdo\\SeventhingsLaravel\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Hwkdo\\SeventhingsLaravel\\SeventhingsLaravelServiceProvider"
+            ],
+            "aliases": {
+                "SeventhingsLaravel": "Hwkdo\\SeventhingsLaravel\\SeventhingsLaravelFacade"
+            }
+        }
+    }
+}
