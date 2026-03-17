@@ -46,14 +46,41 @@ class Client extends Eloquent
             $payload
         );
         $result = $guzzle->send($request);
-        if ($result->getStatusCode() == 200) return json_decode($result->getBody()->getContents());
-        else return  $result->getReasonPhrase();
+        $status = $result->getStatusCode();
+        if ($status === 200) {
+            return json_decode($result->getBody()->getContents());
+        }
+        if ($status === 204) {
+            return (object) ['_status' => 204];
+        }
+
+        return $result->getReasonPhrase();
     }
 
-    public function updateAsset($itexia_id,$payload)
+    /**
+     * Update eines Objekts per PATCH object/{objectUuid} (Seventhings Customer API).
+     * Die API antwortet bei Erfolg mit 204 No Content (kein Body).
+     *
+     * @param  string  $objectUuid  UUID des Objekts (asset_uuid aus API-Response)
+     * @param  array<string, mixed>  $payload  Zu aktualisierende Felder (field_key => value)
+     * @return ItexiaAsset|null  Bei 204 wird null zurückgegeben (Erfolg, kein Body)
+     *
+     * @throws \RuntimeException Bei API-Fehler (z. B. 404)
+     */
+    public function updateAsset(string $objectUuid, array $payload)
     {
-        $payload = json_encode($payload);
-        $result = $this->sendRequest('PUT','objects/update?id='.$itexia_id,$payload);
+        $body = json_encode($payload);
+        $result = $this->sendRequest('PATCH', 'object/'.$objectUuid, $body);
+
+        if (! is_object($result)) {
+            throw new \RuntimeException(
+                is_string($result) ? $result : 'Unbekannter API-Fehler beim Objekt-Update.'
+            );
+        }
+        if (isset($result->_status) && $result->_status === 204) {
+            return null;
+        }
+
         return new ItexiaAsset($result);
     }
 
@@ -75,6 +102,27 @@ class Client extends Eloquent
             return new ItexiaAsset($result->items[0]);
         }
         else return null;
+    }
+
+    /**
+     * Findet ein Asset anhand der Rechnungsnummer (API-Feld rechnungsnummer_b0eb3192).
+     *
+     * @param  string  $rechnungsnummer
+     * @return ItexiaAsset|null
+     */
+    public function findAssetByRechnungsnummer($rechnungsnummer)
+    {
+        $value = trim((string) $rechnungsnummer);
+        if ($value === '') {
+            return null;
+        }
+        $filter = 'objects?filter[rechnungsnummer_b0eb3192][eq]='.rawurlencode($value);
+        $result = $this->sendRequest('GET', $filter);
+        if (is_object($result) && isset($result->items) && count($result->items) === 1) {
+            return new ItexiaAsset($result->items[0]);
+        }
+
+        return null;
     }
 
     public function findFilialeById($id)

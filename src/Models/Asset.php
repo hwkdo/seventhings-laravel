@@ -14,6 +14,7 @@ class Asset extends Eloquent
         'preis',
         'kostenstelle',
         'datev_nr',
+        'rechnungsnummer',
         'einheit',
         'lieferdatum',
         'raum_soll',
@@ -35,6 +36,9 @@ class Asset extends Eloquent
     private $preis;
     private $kostenstelle;
     private $datev_nr;
+
+    /** Rechnungsnummer aus API-Feld rechnungsnummer_b0eb3192 */
+    private $rechnungsnummer;
     private $einheit;
     private $lieferdatum;
     private $raum_soll;
@@ -73,6 +77,7 @@ class Asset extends Eloquent
 		$this->preis = $row->preis_hist_anschaffungskosten_eff27c3b ?? null;    //preis_hist_anschaffungskosten_eff27c3b
 		$this->kostenstelle = $row->custom_84 ?? null;      //custom_84
 		$this->datev_nr = $row->custom_78 ?? null;    //custom_78
+		$this->rechnungsnummer = $row->rechnungsnummer_b0eb3192 ?? null;
 		$this->einheit = $row->custom_93 ?? null;    //custom_93
 		$this->lieferdatum = $row->purchasing_date ?? null;
 		$this->raum_soll = $row->target_room ?? null;   //target_room
@@ -132,7 +137,12 @@ class Asset extends Eloquent
     {
         return $this->datev_nr;
     }
-    
+
+    public function getRechnungsnummerAttribute()
+    {
+        return $this->rechnungsnummer;
+    }
+
     public function getEinheitAttribute()
     {
         return $this->einheit;
