@@ -223,7 +223,45 @@ class Client extends Eloquent
         }
         return $col;
     }
-    
+
+    /**
+     * Legt ein neues Objekt in Itexia/Seventhings an (POST object, Customer API).
+     * Response 201 mit Location-Header; die Objekt-UUID wird aus dem Location-Pfad extrahiert.
+     *
+     * @param  array<string, mixed>  $payload  Feld-Schlüssel => Wert (z. B. barcode, custom_78, inventory_name, custom_4, actual_room, rechnungsnummer_b0eb3192)
+     * @return string  UUID des neu erstellten Objekts (aus Location-Header)
+     *
+     * @throws \RuntimeException Bei API-Fehler oder fehlendem Location-Header
+     */
+    public function createAsset(array $payload): string
+    {
+        $response = Http::withHeaders([
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ])->withToken(Token::getToken())
+            ->post(self::baseUrl().'object', $payload);
+
+        if (! $response->successful()) {
+            throw new \RuntimeException(
+                $response->reason().($response->body() ? ': '.$response->body() : '')
+            );
+        }
+
+        $location = $response->header('Location');
+        if ($location === null || $location === '') {
+            throw new \RuntimeException('Create-Objekt: Location-Header fehlt in der API-Response.');
+        }
+
+        $path = parse_url($location, PHP_URL_PATH);
+        $uuid = $path !== null && $path !== '' ? trim((string) basename($path), '/') : '';
+
+        if ($uuid === '') {
+            throw new \RuntimeException('Create-Objekt: UUID konnte aus Location nicht ermittelt werden.');
+        }
+
+        return $uuid;
+    }
+
     public function createRoom($data)
     {
         $result = $this->sendHttpRequest('POST','rooms/create',$data);
