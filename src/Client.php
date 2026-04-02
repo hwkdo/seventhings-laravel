@@ -1,11 +1,15 @@
 <?php
 
 namespace Hwkdo\SeventhingsLaravel;
-use \Illuminate\Database\Eloquent\Model as Eloquent;
+
+use GuzzleHttp\Psr7\Request;
 use Hwkdo\SeventhingsLaravel\Models\Asset as ItexiaAsset;
 use Hwkdo\SeventhingsLaravel\Models\Filiale as ItexiaFiliale;
 use Hwkdo\SeventhingsLaravel\Models\Raum as ItexiaRaum;
+use Illuminate\Database\Eloquent\Model as Eloquent;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
 use stdClass;
 
 class Client extends Eloquent
@@ -35,28 +39,28 @@ class Client extends Eloquent
         return Token::getToken();
     }
 
-    public function sendHttpRequest($verb,$endpoint,$payload)
+    public function sendHttpRequest($verb, $endpoint, $payload)
     {
-        $response = Http::withHeaders([            
-                 'Accept' => 'application/json',
-                 'Content-Type'  => 'application/json',
+        $response = Http::withHeaders([
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
         ])->withToken(Token::getToken())
-        ->$verb(self::baseUrl().$endpoint,$payload);
+            ->$verb(self::baseUrl().$endpoint, $payload);
 
         return $response->ok() ? json_decode($response->getBody()->getContents()) : $response->getReasonPhrase();
     }
 
-    public function sendRequest($verb,$endpoint,$payload = null)
+    public function sendRequest($verb, $endpoint, $payload = null)
     {
         $guzzle = new \GuzzleHttp\Client(
             ['base_uri' => self::baseUrl()]
         );
-        $request = new \GuzzleHttp\Psr7\Request($verb,
+        $request = new Request($verb,
             $endpoint,
             [
-                 'Authorization' => 'Bearer '.Token::getToken(),
-                 'Accept' => 'application/json',
-                 'Content-Type'  => 'application/json',
+                'Authorization' => 'Bearer '.Token::getToken(),
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
             ],
             $payload
         );
@@ -78,7 +82,7 @@ class Client extends Eloquent
      *
      * @param  string  $objectUuid  UUID des Objekts (asset_uuid aus API-Response)
      * @param  array<string, mixed>  $payload  Zu aktualisierende Felder (field_key => value)
-     * @return ItexiaAsset|null  Bei 204 wird null zurückgegeben (Erfolg, kein Body)
+     * @return ItexiaAsset|null Bei 204 wird null zurückgegeben (Erfolg, kein Body)
      *
      * @throws \RuntimeException Bei API-Fehler (z. B. 404)
      */
@@ -101,22 +105,24 @@ class Client extends Eloquent
 
     public function findAsset($barcode)
     {
-        $result = $this->sendRequest('GET','objects?filter[barcode][eq]='.$barcode);
-        if(count($result->items) == 1) {
+        $result = $this->sendRequest('GET', 'objects?filter[barcode][eq]='.$barcode);
+        if (count($result->items) == 1) {
             return new ItexiaAsset($result->items[0]);
-        } 
-        else return null;
+        } else {
+            return null;
+        }
     }
 
     public function findAssetBySn($sn)
     {
 
-        $result = $this->sendRequest('GET','objects?filter[custom_4][eq]='.$sn);
-//        $result = \DB::connection('itexia')->table('itexia.Asset')->where('barcode',$barcode)->get();
-        if(count($result->items) == 1) {
+        $result = $this->sendRequest('GET', 'objects?filter[custom_4][eq]='.$sn);
+        //        $result = \DB::connection('itexia')->table('itexia.Asset')->where('barcode',$barcode)->get();
+        if (count($result->items) == 1) {
             return new ItexiaAsset($result->items[0]);
+        } else {
+            return null;
         }
-        else return null;
     }
 
     /**
@@ -142,19 +148,19 @@ class Client extends Eloquent
 
     public function findFilialeById($id)
     {
-        $result = $this->sendRequest('GET','locations?filter[id][eq]='.$id);
-        if(count($result->items) == 1) {
+        $result = $this->sendRequest('GET', 'locations?filter[id][eq]='.$id);
+        if (count($result->items) == 1) {
             return new ItexiaFiliale($result->items[0]);
+        } else {
+            return null;
         }
-        else return null;
 
-//        $result = \DB::connection('itexia')->table('itexia.Building')->where('id',$id)->get();
-//        if($result->count() == 1) {
-//            return new ItexiaFiliale($result->first());
-//        }
-//        else return null;
+        //        $result = \DB::connection('itexia')->table('itexia.Building')->where('id',$id)->get();
+        //        if($result->count() == 1) {
+        //            return new ItexiaFiliale($result->first());
+        //        }
+        //        else return null;
     }
-
 
     /**
      * Raum per ID (GET rooms). Ergebnisse werden pro Client-Instanz gecacht.
@@ -199,23 +205,21 @@ class Client extends Eloquent
     {
         $this->raumByIdLookupCache = [];
     }
-    
-    
-   
+
     public function getFilialRaeume($id)
     {
-        $result = $this->sendRequest('GET','rooms?filter[building_id][eq]='.$id);
+        $result = $this->sendRequest('GET', 'rooms?filter[building_id][eq]='.$id);
         $col = collect();
-        foreach($result->items as $row)
-        {
+        foreach ($result->items as $row) {
             $col->push(new ItexiaRaum($row));
         }
+
         return $col;
         // $result = \DB::connection('itexia')->table('itexia.Room')->where('building_id',$id)->get();
         // if($result->count() == 1) {
         //     return new ItexiaRaum($result->first());
-        // } 
-        // elseif($result->count() > 1) 
+        // }
+        // elseif($result->count() > 1)
         // {
         //     $col = collect();
         //     foreach($result as $row)
@@ -230,42 +234,173 @@ class Client extends Eloquent
     public function getRaeume()
     {
         $page = 1;
-        $result = $this->sendRequest('GET','rooms?per_page=1000&page='.$page);
+        $result = $this->sendRequest('GET', 'rooms?per_page=1000&page='.$page);
         $items = $result->items;
-        if($result->total > ($result->per_page * $result->page)) {
+        if ($result->total > ($result->per_page * $result->page)) {
             $page++;
-            $result = $this->sendRequest('GET','rooms?per_page=1000&page='.$page);            
+            $result = $this->sendRequest('GET', 'rooms?per_page=1000&page='.$page);
             $items = array_merge($items, $result->items);
         }
         $col = collect();
-        foreach($items as $row)
-        {
+        foreach ($items as $row) {
             $col->push(new ItexiaRaum($row));
         }
+
         return $col;
     }
 
     public function getGebaeude()
     {
-        $result = $this->sendRequest('GET','locations');
+        $result = $this->sendRequest('GET', 'locations');
+
         return $result->items;
         $col = collect();
-        foreach($result->items as $row)
-        {
+        foreach ($result->items as $row) {
             $col->push(new ItexiaFiliale($row));
         }
+
         return $col;
     }
 
     public function getAssetsInRaum($raum)
     {
-        $result = $this->sendRequest('GET','objects?filter[actual_room][eq]='.$raum);
+        $result = $this->sendRequest('GET', 'objects?filter[actual_room][eq]='.$raum);
         $col = collect();
-        foreach($result->items as $row)
-        {
+        foreach ($result->items as $row) {
             $col->push(new ItexiaAsset($row));
         }
+
         return $col;
+    }
+
+    /**
+     * Objekte per GET objects mit filter[field][in][] für mehrere Objekt-UUIDs (weniger Requests als N× findAsset).
+     * Die UUID-Liste wird in Chunks aufgeteilt, damit die Query-URL nicht zu lang wird.
+     *
+     * @param  array<int, string>  $uuids
+     * @param  ?string  $uuidFieldKey  API-Feld für den Filter (z. B. asset_uuid); null = config object_uuid_key oder Fallback asset_uuid
+     * @return Collection<int, ItexiaAsset>
+     *
+     * @throws InvalidArgumentException
+     * @throws \RuntimeException
+     */
+    public function findAssetsByUuids(
+        array $uuids,
+        ?string $uuidFieldKey = null,
+        int $uuidsPerRequest = 50,
+        int $perPage = 1000
+    ): Collection {
+        if ($uuidsPerRequest < 1) {
+            throw new InvalidArgumentException('uuidsPerRequest muss >= 1 sein.');
+        }
+        if ($perPage < 1) {
+            throw new InvalidArgumentException('perPage muss >= 1 sein.');
+        }
+
+        $normalized = [];
+        foreach ($uuids as $uuid) {
+            $u = strtolower(trim((string) $uuid));
+            if ($u !== '') {
+                $normalized[$u] = $u;
+            }
+        }
+
+        if ($normalized === []) {
+            return collect();
+        }
+
+        $fieldKey = $this->resolveObjectUuidFilterFieldKey($uuidFieldKey);
+        $merged = collect();
+
+        foreach (array_chunk(array_values($normalized), $uuidsPerRequest) as $chunk) {
+            $merged = $merged->merge($this->getObjectsWithUuidInFilter($fieldKey, $chunk, $perPage));
+        }
+
+        return $merged->values();
+    }
+
+    /**
+     * @param  array<int, string>  $uuidList  Bereits ein Chunk (normalisierte UUIDs)
+     * @return Collection<int, ItexiaAsset>
+     */
+    private function getObjectsWithUuidInFilter(string $fieldKey, array $uuidList, int $perPage): Collection
+    {
+        $rows = [];
+        $page = 1;
+        $maxPages = 500;
+        $paginationComplete = false;
+
+        while ($page <= $maxPages) {
+            $endpoint = $this->buildObjectsListEndpoint($fieldKey, $uuidList, $perPage, $page);
+            $result = $this->sendRequest('GET', $endpoint);
+
+            if (! is_object($result)) {
+                throw new \RuntimeException(
+                    is_string($result) ? $result : 'Seventhings GET objects: ungültige Antwort.'
+                );
+            }
+
+            if (! isset($result->items) || ! is_array($result->items)) {
+                throw new \RuntimeException('Seventhings GET objects: Feld „items“ fehlt oder ist ungültig.');
+            }
+
+            foreach ($result->items as $row) {
+                $rows[] = $row;
+            }
+
+            $total = (int) ($result->total ?? 0);
+            $perPageReported = (int) ($result->per_page ?? $perPage);
+            $currentPage = (int) ($result->page ?? $page);
+
+            if ($total <= $perPageReported * $currentPage || count($result->items) === 0) {
+                $paginationComplete = true;
+                break;
+            }
+
+            $page++;
+        }
+
+        if (! $paginationComplete) {
+            throw new \RuntimeException('Seventhings GET objects: Pagination-Limit erreicht ('.$maxPages.' Seiten).');
+        }
+
+        $out = collect();
+        foreach ($rows as $row) {
+            $out->push(new ItexiaAsset($row));
+        }
+
+        return $out->values();
+    }
+
+    private function resolveObjectUuidFilterFieldKey(?string $uuidFieldKey): string
+    {
+        if ($uuidFieldKey !== null && trim($uuidFieldKey) !== '') {
+            return trim($uuidFieldKey);
+        }
+
+        $configKey = config('seventhings-laravel.object_uuid_key');
+        if (is_string($configKey) && trim($configKey) !== '') {
+            return trim($configKey);
+        }
+
+        return 'asset_uuid';
+    }
+
+    /**
+     * @param  array<int, string>  $uuids
+     */
+    private function buildObjectsListEndpoint(string $fieldKey, array $uuids, int $perPage, int $page): string
+    {
+        $parts = [
+            'objects?per_page='.$perPage,
+            'page='.$page,
+        ];
+
+        foreach ($uuids as $uuid) {
+            $parts[] = 'filter['.$fieldKey.'][in][]='.rawurlencode($uuid);
+        }
+
+        return implode('&', $parts);
     }
 
     /**
@@ -273,7 +408,7 @@ class Client extends Eloquent
      * Response 201 mit Location-Header; die Objekt-UUID wird aus dem Location-Pfad extrahiert.
      *
      * @param  array<string, mixed>  $payload  Feld-Schlüssel => Wert (z. B. barcode, custom_78, inventory_name, custom_4, actual_room, rechnungsnummer_b0eb3192)
-     * @return string  UUID des neu erstellten Objekts (aus Location-Header)
+     * @return string UUID des neu erstellten Objekts (aus Location-Header)
      *
      * @throws \RuntimeException Bei API-Fehler oder fehlendem Location-Header
      */
@@ -308,32 +443,37 @@ class Client extends Eloquent
 
     public function createRoom($data)
     {
-        $result = $this->sendHttpRequest('POST','rooms/create',$data);
-        return $result;        
+        $result = $this->sendHttpRequest('POST', 'rooms/create', $data);
+
+        return $result;
     }
 
-    public function updateRoom($data,$id)
+    public function updateRoom($data, $id)
     {
-        $result = $this->sendHttpRequest('PUT','rooms/update?id='.$id,$data);
-        return $result;        
+        $result = $this->sendHttpRequest('PUT', 'rooms/update?id='.$id, $data);
+
+        return $result;
     }
 
     public function createGebaeude($data)
     {
-        $result = $this->sendHttpRequest('POST','buildings/create',$data);
-        return $result;        
+        $result = $this->sendHttpRequest('POST', 'buildings/create', $data);
+
+        return $result;
     }
 
     public function updateGebaeude($data, $id)
     {
-        $result = $this->sendHttpRequest('PUT','buildings/update?id='.$id,$data);
-        return $result;        
+        $result = $this->sendHttpRequest('PUT', 'buildings/update?id='.$id, $data);
+
+        return $result;
     }
 
     public function getRaumFelddefintionen($onlyRequired = false)
     {
         $endpoint = $onlyRequired ? 'room-field-definition?filter[mandatory][eq]=1' : 'room-field-definition';
-        return $this->sendHttpRequest('GET',$endpoint,null);
+
+        return $this->sendHttpRequest('GET', $endpoint, null);
     }
 
     /**
@@ -484,7 +624,7 @@ class Client extends Eloquent
                 );
             }
 
-            if ($response->status() === 400 && !str_contains($response->body(), 'Body does not match schema')) {
+            if ($response->status() === 400 && ! str_contains($response->body(), 'Body does not match schema')) {
                 throw new \RuntimeException(
                     'Datei konnte dem Objekt nicht zugeordnet werden: '.$response->reason().
                     ($response->body() !== '' ? ': '.$response->body() : '')
@@ -566,7 +706,7 @@ class Client extends Eloquent
                 );
             }
 
-            if ($response->status() === 400 && !str_contains($response->body(), 'Body does not match schema')) {
+            if ($response->status() === 400 && ! str_contains($response->body(), 'Body does not match schema')) {
                 throw new \RuntimeException(
                     'Dateien konnten vom Objekt nicht entfernt werden: '.$response->reason().
                     ($response->body() !== '' ? ': '.$response->body() : '')
@@ -646,5 +786,4 @@ class Client extends Eloquent
 
         return $fileUuid;
     }
-
 }
