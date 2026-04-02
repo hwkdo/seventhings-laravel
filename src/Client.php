@@ -10,6 +10,13 @@ use stdClass;
 
 class Client extends Eloquent
 {
+    /**
+     * Memoization für {@see findRaumById()}: gleiche Raum-ID löst nur einen GET rooms aus.
+     * Die Facade bindet {@see SeventhingsLaravel} als Singleton → Cache gilt pro Request/Job.
+     *
+     * @var array<string, ItexiaRaum|null>
+     */
+    protected array $raumByIdLookupCache = [];
 
     /*
     **  https://api.seventhings.com/customer-api/v1/
@@ -149,19 +156,48 @@ class Client extends Eloquent
     }
 
 
+    /**
+     * Raum per ID (GET rooms). Ergebnisse werden pro Client-Instanz gecacht.
+     *
+     * @return ItexiaRaum|null
+     */
     public function findRaumById($id)
     {
-        $result = $this->sendRequest('GET','rooms?filter[id][eq]='.$id);
-        if(count($result->items) == 1) {
-            return new ItexiaRaum($result->items[0]);
+        if ($id === null || $id === '' || $id === false) {
+            return null;
         }
-        else return null;
 
-//        $result = \DB::connection('itexia')->table('itexia.Room')->where('id',$id)->get();
-//        if($result->count() == 1) {
-//            return new ItexiaRaum($result->first());
-//        }
-//        else return null;
+        $key = (string) $id;
+        if (array_key_exists($key, $this->raumByIdLookupCache)) {
+            return $this->raumByIdLookupCache[$key];
+        }
+
+        $result = $this->sendRequest('GET', 'rooms?filter[id][eq]='.$id);
+
+        if (! is_object($result) || ! isset($result->items) || ! is_array($result->items)) {
+            $this->raumByIdLookupCache[$key] = null;
+
+            return null;
+        }
+
+        if (count($result->items) === 1) {
+            $room = new ItexiaRaum($result->items[0]);
+            $this->raumByIdLookupCache[$key] = $room;
+
+            return $room;
+        }
+
+        $this->raumByIdLookupCache[$key] = null;
+
+        return null;
+    }
+
+    /**
+     * Cache von {@see findRaumById()} leeren (Tests, lange Prozesse mit vielen IDs).
+     */
+    public function flushRaumLookupCache(): void
+    {
+        $this->raumByIdLookupCache = [];
     }
     
     

@@ -17,8 +17,8 @@ class Asset extends Eloquent
         'rechnungsnummer',
         'einheit',
         'lieferdatum',
-        'raum_soll',
-        'raum_ist',
+        // raum_soll / raum_ist bewusst nicht appends: die Getter rufen die Customer-API
+        // (findRaumById) auf — bei Listen/JSON würde das N+1 und Rate-Limits triggern.
         'konto',
         'kontobeschriftung',
         'nutzungsart',
@@ -155,12 +155,22 @@ class Asset extends Eloquent
 
     public function getRaumSollAttribute()
     {
-        return SeventhingsLaravel::findRaumById($this->raum_soll);
+        $id = $this->raum_soll;
+        if ($id === null || $id === '' || $id === false) {
+            return null;
+        }
+
+        return SeventhingsLaravel::findRaumById($id);
     }
 
     public function getRaumIstAttribute()
     {
-        return SeventhingsLaravel::findRaumById($this->raum_ist);
+        $id = $this->raum_ist;
+        if ($id === null || $id === '' || $id === false) {
+            return null;
+        }
+
+        return SeventhingsLaravel::findRaumById($id);
     }
 
     public function getKontoAttribute()
