@@ -30,6 +30,8 @@ class SeventhingsLaravelServiceProvider extends ServiceProvider
             return new SeventhingsLaravel();
         });
         $this->app->alias(SeventhingsLaravel::class, 'seventhings-laravel');
+        $this->app->singleton(\Hwkdo\SeventhingsLaravel\Services\ItexiaRoomUpdateService::class);
+        $this->app->singleton(\Hwkdo\SeventhingsLaravel\Services\ItexiaAssetArchiveService::class);
         $this->mergeConfigFrom(
             __DIR__.'/config/seventhings-laravel.php', 'seventhings-laravel'
         );

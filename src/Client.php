@@ -103,6 +103,34 @@ class Client extends Eloquent
         return new ItexiaAsset($result);
     }
 
+    /**
+     * Archiviert ein Objekt per POST object/{objectUuid}/archive (Seventhings Customer API).
+     * Die API antwortet bei Erfolg mit 204 No Content.
+     *
+     * @throws \RuntimeException Bei API-Fehler
+     */
+    public function archiveAsset(string $objectUuid): void
+    {
+        $objectUuid = trim($objectUuid);
+        if ($objectUuid === '') {
+            throw new \RuntimeException('Objekt-UUID fehlt.');
+        }
+
+        $result = $this->sendRequest('POST', 'object/'.$objectUuid.'/archive');
+
+        if (! is_object($result)) {
+            throw new \RuntimeException(
+                is_string($result) ? $result : 'Unbekannter API-Fehler beim Archivieren.'
+            );
+        }
+
+        if (isset($result->_status) && $result->_status === 204) {
+            return;
+        }
+
+        throw new \RuntimeException('Archivierung in Seventhings fehlgeschlagen.');
+    }
+
     public function findAsset($barcode)
     {
         $result = $this->sendRequest('GET', 'objects?filter[barcode][eq]='.$barcode);

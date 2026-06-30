@@ -7,6 +7,11 @@ return [
      */
     'object_uuid_key' => env('SEVENTHINGS_OBJECT_UUID_KEY', ''),
 
+    /**
+     * API-Feldkey für „Inventurhinweis“ (LONG_TEXT), z. B. custom_3 auf der HWK-Instanz.
+     */
+    'inventurhinweis_field_key' => env('SEVENTHINGS_INVENTURHINWEIS_FIELD_KEY', 'custom_3'),
+
     'client_id' => env('SEVENTHINGS_CLIENT_ID'),
     'username' => env('SEVENTHINGS_USERNAME'),
     'password' => env('SEVENTHINGS_PASSWORD'),

@@ -2,15 +2,11 @@
 
 namespace Hwkdo\SeventhingsLaravel\Mcp\Tools;
 
-use Hwkdo\SeventhingsLaravel\Client;
-use Hwkdo\SeventhingsLaravel\Events\ItexiaAssetActualRoomUpdated;
 use Hwkdo\SeventhingsLaravel\SeventhingsLaravel;
-use Hwkdo\SeventhingsLaravel\Support\SeventhingsObjectUuid;
+use Hwkdo\SeventhingsLaravel\Services\ItexiaRoomUpdateService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Log;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\ResponseFactory;
@@ -41,60 +37,27 @@ class ItexiaRaumAktualisierenTool extends Tool
 
         $objectUuid = isset($validated['object_uuid']) ? trim((string) $validated['object_uuid']) : '';
         $barcode = isset($validated['barcode']) ? trim((string) $validated['barcode']) : '';
-        $barcodeForCache = $barcode !== '' ? $barcode : null;
         $actualRoomId = (int) $validated['actual_room_id'];
-
-        if ($objectUuid === '' && $barcode === '') {
-            return Response::error('Bitte entweder object_uuid oder barcode angeben.');
-        }
 
         if (! class_exists(SeventhingsLaravel::class) || ! app()->bound(SeventhingsLaravel::class)) {
             return Response::error('Seventhings/Itexia ist in dieser Umgebung nicht gebunden (Paket oder Konfiguration fehlt).');
         }
 
-        /** @var Client $client */
-        $client = app()->make(SeventhingsLaravel::class);
+        $result = app(ItexiaRoomUpdateService::class)->updateActualAndTargetRoom(
+            $objectUuid !== '' ? $objectUuid : null,
+            $barcode !== '' ? $barcode : null,
+            $actualRoomId,
+        );
 
-        if ($objectUuid === '') {
-            try {
-                $itexiaAsset = $client->findAsset($barcode);
-            } catch (\Throwable $e) {
-                Log::error('itexia_raum_aktualisieren find failed', ['message' => $e->getMessage()]);
-
-                return Response::error('Itexia-Abfrage fehlgeschlagen: '.$e->getMessage());
-            }
-
-            if ($itexiaAsset === null) {
-                return Response::error('Kein Itexia-Objekt mit diesem Barcode gefunden.');
-            }
-
-            $resolved = SeventhingsObjectUuid::fromItexiaAsset($itexiaAsset);
-            if ($resolved === null || $resolved === '') {
-                return Response::error('Objekt-UUID konnte aus der Itexia-Antwort nicht ermittelt werden.');
-            }
-            $objectUuid = $resolved;
+        if (! $result->success) {
+            return Response::error($result->errorMessage ?? 'Raum konnte nicht gesetzt werden.');
         }
-
-        Log::info('itexia_raum_aktualisieren patch', [
-            'object_uuid_prefix' => substr($objectUuid, 0, 8).'…',
-            'actual_room_id' => $actualRoomId,
-        ]);
-
-        try {
-            $client->updateAsset($objectUuid, ['actual_room' => $actualRoomId]);
-        } catch (\Throwable $e) {
-            Log::error('itexia_raum_aktualisieren update failed', ['message' => $e->getMessage()]);
-
-            return Response::error('actual_room konnte nicht gesetzt werden: '.$e->getMessage());
-        }
-
-        Event::dispatch(new ItexiaAssetActualRoomUpdated($objectUuid, $actualRoomId, $barcodeForCache));
 
         return Response::structured([
             'success' => true,
-            'object_uuid' => $objectUuid,
-            'actual_room_id' => $actualRoomId,
-            'message' => 'Ist-Raum (actual_room) wurde in Itexia aktualisiert.',
+            'object_uuid' => $result->objectUuid,
+            'actual_room_id' => $result->roomId,
+            'message' => 'Ist-Raum (actual_room) und Soll-Raum (target_room) wurden in Itexia aktualisiert.',
         ]);
     }
 
