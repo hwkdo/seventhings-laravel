@@ -3,7 +3,10 @@
     "type": "library",
     "description": "Client for Seventhings ",
     "homepage": "https://hwk-do.de",
-    "keywords": ["seventhings", "hwkdo"],
+    "keywords": [
+        "seventhings",
+        "hwkdo"
+    ],
     "license": "MIT",
     "authors": [
         {
@@ -14,12 +17,11 @@
     "minimum-stability": "dev",
     "require": {
         "php": "^8.2",
-        "illuminate/contracts": "^11.0|^12.0",
-        "illuminate/support": "^11.0|^12.0",
+        "illuminate/contracts": "^12.0||^13.0",
+        "illuminate/support": "^12.0||^13.0",
         "laravel/mcp": "^0.5|^1.0"
     },
-    
-    "autoload": {        
+    "autoload": {
         "psr-4": {
             "Hwkdo\\SeventhingsLaravel\\": "src/"
         }
