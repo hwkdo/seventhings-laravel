@@ -197,7 +197,11 @@ class Client extends Eloquent
      */
     public function findRaumById($id)
     {
-        if ($id === null || $id === '' || $id === false) {
+        if (is_object($id) && isset($id->id) && is_numeric($id->id)) {
+            $id = (int) $id->id;
+        }
+
+        if ($id === null || $id === '' || $id === false || $id === 0 || $id === '0') {
             return null;
         }
 
@@ -215,7 +219,14 @@ class Client extends Eloquent
         }
 
         if (count($result->items) === 1) {
-            $room = new ItexiaRaum($result->items[0]);
+            $item = $result->items[0];
+            if (! is_object($item) || ! property_exists($item, 'id')) {
+                $this->raumByIdLookupCache[$key] = null;
+
+                return null;
+            }
+
+            $room = new ItexiaRaum($item);
             $this->raumByIdLookupCache[$key] = $room;
 
             return $room;
@@ -238,7 +249,13 @@ class Client extends Eloquent
     {
         $result = $this->sendRequest('GET', 'rooms?filter[building_id][eq]='.$id);
         $col = collect();
+        if (! is_object($result) || ! isset($result->items) || ! is_array($result->items)) {
+            return $col;
+        }
         foreach ($result->items as $row) {
+            if (! is_object($row) || ! property_exists($row, 'id')) {
+                continue;
+            }
             $col->push(new ItexiaRaum($row));
         }
 
@@ -263,14 +280,22 @@ class Client extends Eloquent
     {
         $page = 1;
         $result = $this->sendRequest('GET', 'rooms?per_page=1000&page='.$page);
-        $items = $result->items;
-        if ($result->total > ($result->per_page * $result->page)) {
+        $items = (is_object($result) && isset($result->items) && is_array($result->items))
+            ? $result->items
+            : [];
+        if (is_object($result) && isset($result->total, $result->per_page, $result->page)
+            && $result->total > ($result->per_page * $result->page)) {
             $page++;
             $result = $this->sendRequest('GET', 'rooms?per_page=1000&page='.$page);
-            $items = array_merge($items, $result->items);
+            if (is_object($result) && isset($result->items) && is_array($result->items)) {
+                $items = array_merge($items, $result->items);
+            }
         }
         $col = collect();
         foreach ($items as $row) {
+            if (! is_object($row) || ! property_exists($row, 'id')) {
+                continue;
+            }
             $col->push(new ItexiaRaum($row));
         }
 

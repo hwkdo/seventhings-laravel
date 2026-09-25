@@ -4,6 +4,7 @@ namespace Hwkdo\SeventhingsLaravel\Models;
 use \Carbon\Carbon;
 use \Illuminate\Database\Eloquent\Model as Eloquent;
 use Hwkdo\SeventhingsLaravel\SeventhingsLaravelFacade as SeventhingsLaravel;
+use Hwkdo\SeventhingsLaravel\Support\ItexiaRoomReferenceId;
 
 class Asset extends Eloquent
 {
@@ -155,22 +156,16 @@ class Asset extends Eloquent
 
     public function getRaumSollAttribute()
     {
-        $id = $this->raum_soll;
-        if ($id === null || $id === '' || $id === false) {
-            return null;
-        }
+        $id = ItexiaRoomReferenceId::fromApiValue($this->raum_soll);
 
-        return SeventhingsLaravel::findRaumById($id);
+        return $id === null ? null : SeventhingsLaravel::findRaumById($id);
     }
 
     public function getRaumIstAttribute()
     {
-        $id = $this->raum_ist;
-        if ($id === null || $id === '' || $id === false) {
-            return null;
-        }
+        $id = ItexiaRoomReferenceId::fromApiValue($this->raum_ist);
 
-        return SeventhingsLaravel::findRaumById($id);
+        return $id === null ? null : SeventhingsLaravel::findRaumById($id);
     }
 
     public function getKontoAttribute()

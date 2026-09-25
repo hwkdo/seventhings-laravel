@@ -30,21 +30,35 @@ class Raum extends Eloquent
     public function __construct($row)
     {
         $this->row = $row;
-        $this->id = $row->id;
-        $this->nummer = $row->number ?? null;
-        $this->etage = $row->flur_97bcff6f ?? null;
-        $this->name = $row->name ?? null;            
-        $this->mitarbeiter = $row->nutzer_c9dfc7fd ?? null;//$row->s_11;
-        $this->gebaeude = $row->standort_filiale_id_d5500dbf ?? null;
-        $this->kostenstelle = $row->kostenstelle_cc7633d2 ?? null; //$row->s_14;
-    }    
+        $this->id = $this->readRowProperty($row, 'id');
+        $this->nummer = $this->readRowProperty($row, 'number');
+        $this->etage = $this->readRowProperty($row, 'flur_97bcff6f');
+        $this->name = $this->readRowProperty($row, 'name');
+        $this->mitarbeiter = $this->readRowProperty($row, 'nutzer_c9dfc7fd');
+        $this->gebaeude = $this->readRowProperty($row, 'standort_filiale_id_d5500dbf');
+        $this->kostenstelle = $this->readRowProperty($row, 'kostenstelle_cc7633d2');
+    }
 
     public function getRawData($column = null)
     {
-        if($column) {
-            return $this->row->$column;
+        if ($column) {
+            return $this->readRowProperty($this->row, $column);
         }
+
         return $this->row;
+    }
+
+    /**
+     * Laravel wandelt Undefined-Property-Warnings in ErrorExceptions um —
+     * daher nie Rohzugriff ohne property_exists.
+     */
+    private function readRowProperty(mixed $row, string $property): mixed
+    {
+        if (! is_object($row) || ! property_exists($row, $property)) {
+            return null;
+        }
+
+        return $row->$property;
     }
 
     public function getLabelAttribute()
